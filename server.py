@@ -14,6 +14,30 @@ def get_all():
     return {'data': [r.decode("utf-8") for r in results.values()]}
 
 
+@app.route("/remove", methods=['POST'])
+def remove_proxy():
+    data = request.json
+    hostname = data.get('hostname', None)
+    if hostname:
+        redis = StrictRedis(
+            host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD, db=0)
+        redis.hdel('proxy', hostname)
+    return 'Removed Proxy'
+
+
+@app.route("/set", methods=['POST'])
+def set_proxy():
+    data = request.json
+    hostname = data.get('hostname', None)
+    proxy = data.get('proxy', None)
+    if hostname and proxy:
+        rediscli = StrictRedis(
+            host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD, db=0)
+        if rediscli.hset('proxy', hostname, proxy):
+            return 'Successfully Set Proxy: ' + proxy
+    return 'Failed Set Proxy: ' + proxy
+
+
 @app.route("/ban", methods=['GET'])
 def get_ban():
     rediscli = StrictRedis(
