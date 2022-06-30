@@ -4,9 +4,9 @@ import time
 import requests
 import subprocess
 from requests.exceptions import ConnectionError, ReadTimeout
-from redis import StrictRedis
 
-from config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, PROXY_KEY, GET_BAN_URL
+from config import (PROXY_KEY,
+GET_BAN_URL, SET_PROXY_URL, REMOVE_PROXY_URL)
 
 # 拨号间隔
 ADSL_CYCLE = 2
@@ -66,10 +66,7 @@ class Sender():
         移除代理
         :return: None
         """
-        redis = StrictRedis(
-            host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD, db=0)
-        redis.hdel('proxy', PROXY_KEY)
-        print('Successfully Removed Proxy')
+        requests.post(REMOVE_PROXY_URL, json={'hostname': PROXY_KEY})
 
     def set_proxy(self, proxy):
         """
@@ -77,10 +74,7 @@ class Sender():
         :param proxy: 代理
         :return: None
         """
-        rediscli = StrictRedis(
-            host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD, db=0)
-        if rediscli.hset('proxy', PROXY_KEY, proxy):
-            print('Successfully Set Proxy', proxy)
+        requests.post(SET_PROXY_URL, json={'hostname': PROXY_KEY, 'proxy': proxy})
 
     def get_bans(self):
         try:
@@ -95,7 +89,7 @@ class Sender():
         try:
             self.remove_proxy()
         except Exception as e:
-            print("Redis", e)
+            print("Remove", e)
             return False
         (status, output) = subprocess.getstatusoutput(ADSL_BASH)
         ip = self.get_ip()
@@ -109,7 +103,7 @@ class Sender():
                 try:
                     self.set_proxy(proxy)
                 except Exception:
-                    print("Redis", e)
+                    print("Set", e)
                     return False
                 result = True
             else:
