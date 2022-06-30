@@ -36,6 +36,7 @@ class Sender():
         :param ifname: 网卡名称
         :return:
         """
+        ip = None
         (status, output) = subprocess.getstatusoutput('ifconfig')
         if status == 0:
             pattern = re.compile(ifname + r'.*?inet.*?(\d+\.\d+\.\d+\.\d+).*?netmask', re.S)
@@ -89,23 +90,36 @@ class Sender():
             return list()
 
     def change_ip(self):
+        result = False
         print('ADSL Start, Remove Proxy, Please wait')
-        self.remove_proxy()
+        try:
+            self.remove_proxy()
+        except Exception as e:
+            print("Redis", e)
+            return False
         (status, output) = subprocess.getstatusoutput(ADSL_BASH)
-        if status == 0:
+        ip = self.get_ip()
+        if status == 0 and ip:
             print('ADSL Successfully')
-            ip = self.get_ip()
             print('Now IP', ip)
             print('Testing Proxy, Please Wait')
             proxy = '{ip}:{port}'.format(ip=ip, port=PROXY_PORT)
             if self.test_proxy('{ip}:{port}'.format(ip='127.0.0.1', port=PROXY_PORT)):
                 print('Valid Proxy')
-                self.set_proxy(proxy)
+                try:
+                    self.set_proxy(proxy)
+                except Exception:
+                    print("Redis", e)
+                    return False
+                result = True
             else:
                 (status, output) = subprocess.getstatusoutput(TINYPROXY_BASH)
+                result = False
         else:
             print('ADSL Failed, Please Check')
             time.sleep(ADSL_ERROR_CYCLE)
+            result = False
+        return result
 
     def adsl(self):
         """
@@ -114,14 +128,17 @@ class Sender():
         """
         self.change_ip()
         while(True):
+            changed = False
             ip = self.get_ip()
             bans = self.get_bans()
             print(ip, bans)
-            if ip in bans:
-                self.change_ip()
-            proxy = '{ip}:{port}'.format(ip=ip, port=PROXY_PORT)
-            if not self.test_proxy('{ip}:{port}'.format(ip='127.0.0.1', port=PROXY_PORT)):
-                self.change_ip()
+            if ip is None or ip in bans:
+                changed = self.change_ip()
+                ip = self.get_ip()
+            if ip is not None:
+                proxy = '{ip}:{port}'.format(ip=ip, port=PROXY_PORT)
+                if not self.test_proxy('{ip}:{port}'.format(ip='127.0.0.1', port=PROXY_PORT)):
+                    self.change_ip()
             time.sleep(ADSL_CYCLE)
 
 if __name__ == '__main__':
